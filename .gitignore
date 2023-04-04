@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Input/Output
+input.txt
+data.xlsx
+
+# vscode
+.vscode/
