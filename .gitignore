@@ -130,7 +130,7 @@ dmypy.json
 
 # Input/Output
 input.txt
-data.xlsx
+*.xlsx
 
 # vscode
 .vscode/
