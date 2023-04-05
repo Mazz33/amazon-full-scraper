@@ -14,8 +14,8 @@ def amazonSearch(asinList, index, writer, updater):
 	for asin in asinList:
 		number += 1
 		item = Item(asin)
-		updater()
 		writer.writeItemData(item, number)
+		updater()
 
 def getStartPoints(arr):
 	startPoints = []
@@ -29,13 +29,7 @@ def getStartPoints(arr):
 				startPoints.append(startPoints[i-1] + len(arr[i]) + 1)
 	return startPoints
 				
-def createThreads(max):
-	threads = []
-	for t in range(max):
-		t = Thread()
-	return threads
-
-def startSearch(asinList, threadCount, writer, updater):
+def scrape(asinList, threadCount, writer, updater):
 	splitted = np.array_split(asinList, threadCount)
 	startPoints = getStartPoints(splitted)
 	threads = []

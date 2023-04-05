@@ -1,26 +1,35 @@
 import sys
 import os 
 from PyQt6 import QtCore, QtGui, QtWidgets
+from pandas.errors import ParserError
 
-from scraper import startSearch
+from scraper import scrape
 from Excel import *
 
 class App(object):
 	def __init__(this):
-		this.writer = ExcelWriter()
-
 		this.createWidgets()
 		this.setObjectNames()
 		this.setFonts()
 		this.addWidgets()
 		this.setupUi()
+		this.alignAsinViewSection()
 		this.setUiText(this.root)
 		this.checkOptions()
 		this.buddyLabels()
 		this.setupThreadSlider()
 		this.connectEvents()
+		this.updateCheckboxValues()
 		this.root.closeEvent = this.exitApplication
 
+	def showImportedAsinsList(this):
+		itemModel = QtGui.QStandardItemModel(this.importedAsinList)
+		for asin in this.asinList:
+			print(asin)
+			item = QtGui.QStandardItem(asin)
+			itemModel.appendRow(item)
+		this.importedAsinList.setModel(itemModel)
+		this.importedAsinList.show()
 
 	def show(this):
 		this.root.show()
@@ -75,7 +84,6 @@ class App(object):
 		this.currencyCheck = QtWidgets.QCheckBox(parent=this.mainAppGrid)
 		this.sellerCheck = QtWidgets.QCheckBox(parent=this.mainAppGrid)
 		this.imageCheck = QtWidgets.QCheckBox(parent=this.mainAppGrid)
-		this.imageCheckLink = QtWidgets.QCheckBox(parent=this.mainAppGrid)
 
 		# Labels
 		this.numberOfAsinsLabel = QtWidgets.QLabel(parent=this.mainAppGrid)
@@ -124,7 +132,6 @@ class App(object):
 		this.currencyCheck.setObjectName("currencyCheck")
 		this.sellerCheck.setObjectName("sellerCheck")
 		this.imageCheck.setObjectName("imageCheck")
-		this.imageCheckLink.setObjectName("imageCheckLink")
 
 		# Labels
 		this.numberOfAsinsLabel.setObjectName("numberOfAsinsLabel")
@@ -149,7 +156,6 @@ class App(object):
 		this.scrapingOptions.addWidget(this.currencyCheck)
 		this.scrapingOptions.addWidget(this.sellerCheck)
 		this.scrapingOptions.addWidget(this.imageCheck)
-		this.scrapingOptions.addWidget(this.imageCheckLink)
 		this.columnSelect.addWidget(this.columnLetterLabel)
 		this.columnSelect.addWidget(this.columnLetter)
 		this.threadOptions.addWidget(this.threadsLabel)
@@ -229,7 +235,6 @@ class App(object):
 		this.currencyCheck.setChecked(True)
 		this.sellerCheck.setChecked(True)
 		this.imageCheck.setChecked(True)
-		this.imageCheckLink.setChecked(True)
 
 	def setupThreadSlider(this):
 		this.threadsSlider.setToolTipDuration(-1)
@@ -249,7 +254,10 @@ class App(object):
 		msgBox.exec()
 
 	def exitApplication(this, event):
-		this.writer.close()
+		try:
+			this.writer.close()
+		except AttributeError:
+			pass
 
 	def connectEvents(this):
 		this.threadsSlider.sliderMoved['int'].connect(this.numberOfThreads.setValue)
@@ -258,6 +266,13 @@ class App(object):
 		this.importButton.clicked.connect(this.importFile)
 		this.saveAsButton.clicked.connect(this.saveFile)
 		this.startButton.clicked.connect(this.startSearch)
+		this.columnLetter.textChanged.connect(this.readColumnData)
+
+		this.titleCheck.stateChanged.connect(this.updateCheckboxValues)
+		this.priceCheck.stateChanged.connect(this.updateCheckboxValues)
+		this.currencyCheck.stateChanged.connect(this.updateCheckboxValues)
+		this.sellerCheck.stateChanged.connect(this.updateCheckboxValues)
+		this.imageCheck.stateChanged.connect(this.updateCheckboxValues)
 	
 	def setupProgressBar(this):
 		this.progressBar.setProperty("value", 0)
@@ -270,11 +285,10 @@ class App(object):
 		this.outFileSavePath.setPlaceholderText(translate("MainWindow", "Data will be saved at this location"))
 		this.titleCheck.setText(translate("MainWindow", "Title"))
 		this.priceCheck.setText(translate("MainWindow", "Price"))
-		this.currencyCheck.setText(translate("MainWindow", "Currency"))
+		this.currencyCheck.setText(translate("MainWindow", "Currency        "))
 		this.sellerCheck.setText(translate("MainWindow", "Seller"))
 		this.imageCheck.setText(translate("MainWindow", "Image"))
-		this.imageCheckLink.setText(translate("MainWindow", "Image Link"))
-		this.columnLetterLabel.setText(translate("MainWindow", "Column Letter:"))
+		this.columnLetterLabel.setText(translate("MainWindow", "Column:"))
 		this.columnLetter.setText(translate("MainWindow", "B"))
 		this.threadsLabel.setText("Threads:")
 		this.threadsSlider.setToolTip("Threads increase speed of the search but the more you use the higher the chance you get flagged and banned by Amazon")
@@ -283,21 +297,54 @@ class App(object):
 		this.saveAsButton.setText(translate("MainWindow", "Save As"))
 		this.startButton.setText(translate("MainWindow", "Start"))
 
+	def readColumnData(this):
+		try:
+			this.reader = ExcelReader(this.inputFileName)
+			this.asinList = this.reader.readColumnData(this.columnLetter.text())
+			this.asinListLength = len(this.asinList)
+			this.updateProgressBarMaximumValue() 
+			this.updateNumberOfAsinsImported()
+			this.showImportedAsinsList()
+		except AttributeError:
+			this.unableToReadColumn()
+		except TypeError:
+			this.emptyColumnError()
+		except ParserError:
+			this.invalidColumnError()
+
+
 	def importFile(this):
 		this.openFileNameDialog()
 		try:
-			this.reader = ExcelReader(this.inputFileName)
-		except:
-			pass #! Something wrong happened with opening the file. TODO: Display error box
+			this.writer = ExcelWriter(this.outputFileName, this.checkbox)
+		except AttributeError:
+			this.writer = ExcelWriter("data.xlsx", this.checkbox)
+		this.readColumnData()
 
 	def saveFile(this):
 		this.saveFileDialog()
 		try:
 			this.writer.close()
 			this.writer = ExcelWriter(this.outputFileName)
+		except NameError:
+			this.writer = ExcelWriter(this.outputFileName)
 		except:
-			pass #! Can't open a file for writing for some reason. TODO: Display error box
+			this.errorOpeningFileForSave()
 		
+	def startSearch(this):
+		try:
+			assert this.columnLetter.text() != ""
+			scrape(this.asinList, this.numberOfThreads.value(), this.writer, this.updateFinishedItemsValue)
+			this.updateFinishedItemsValue() #? For some reason, the last thread does not call the update function. and the last update doesn't occur
+			this.finishedSearching()
+		except AssertionError:
+			this.emptyColumnLetterError()
+		except AttributeError as E:
+			if (not hasattr(this, "reader")):
+				this.importError()
+				return
+			raise(E)
+
 	def openFileNameDialog(this):
 		fileName, _ = QtWidgets.QFileDialog.getOpenFileName(this.root,"Open Excel File", "","Excel Files (*.xlsx)",)
 		if fileName:
@@ -316,25 +363,7 @@ class App(object):
 		this.progressBar.setMaximum(this.asinListLength)
 		
 	def updateNumberOfAsinsImported(this):
-		this.numberOfAsinsImported.setValue(len(this.asinList))
-
-	def startSearch(this):
-		try:
-			assert this.columnLetter.text() != ""
-			this.asinList = this.reader.readColumnData(this.columnLetter.text())
-			this.asinListLength = len(this.asinList)
-			this.updateProgressBarMaximumValue()
-			this.updateNumberOfAsinsImported()
-			startSearch(this.asinList, this.numberOfThreads.value(), this.writer, this.updateFinishedItemsValue)
-			print(this.progressBar.value())
-			this.updateFinishedItemsValue()
-		except AssertionError:
-			this.emptyColumnLetterError()
-		except AttributeError as E:
-			if (not hasattr(this, "reader")):
-				this.importError()
-				return
-			raise(E)
+		this.numberOfAsinsImported.setValue(this.asinListLength)
 
 	def getInputFileName(this):
 		if (this.inputFileName):
@@ -346,18 +375,51 @@ class App(object):
 			return this.outputFileName
 		return None
 
-	# Error Dialogs
-	def importError(this):
+	def updateCheckboxValues(this):
+		this.checkbox = {
+			"title": this.titleCheck.isChecked(),
+			"price": this.priceCheck.isChecked(),
+			"currency": this.currencyCheck.isChecked(),
+			"seller": this.sellerCheck.isChecked(),
+			"image": this.imageCheck.isChecked()
+		}
+		try:
+			this.writer.updateCheckbox(this.checkbox)
+		except:
+			pass
+
+	# Pop up Dialogs
+	def displayDialogBox(this, title, msg):
 		box = QtWidgets.QMessageBox()
-		box.setWindowTitle("Error!!")
-		box.setText("You have to import first!!")
-		box.exec()
+		box.setWindowTitle(title)
+		box.setText(msg)
+		return box.exec()
+
+	def finishedSearching(this):
+		box = this.displayDialogBox("Done", "Searching done")
+		if (box.clickedButton() == box.buttons()[0]): # * Good luck finding that in the docs
+			this.root.close()
+
+	def importError(this):
+		this.displayDialogBox("Error", "You have to import first")
 
 	def emptyColumnLetterError(this):
-		box = QtWidgets.QMessageBox()
-		box.setWindowTitle("Error!!")
-		box.setText("You must enter a column letter!!")
-		box.exec()
+		this.displayDialogBox("Error", "You must enter a column letter")
+
+	def errorOpeningFileForSave(this):
+		this.displayDialogBox("Error", "Couldn't open the file for saving")
+
+	def errorOpeningFileForImport(this):
+		this.displayDialogBox("Error", "Couldn't import file")
+
+	def unableToReadColumn(this):
+		this.displayDialogBox("Error", "Can't read columns")
+
+	def emptyColumnError(this):
+		this.displayDialogBox("Error", "Column is empty!")
+
+	def invalidColumnError(this):
+		this.displayDialogBox("Error", "Column is empty")
 
 
 if __name__ == "__main__":

@@ -23,6 +23,9 @@ class Item:
 		this.configureSoup()
 		this.extractItemTitle()
 		this.extractItemPrice()
+		this.extractFullPrice()
+		this.extractDiscount()
+		this.extractSeller()
 		this.extractImage()
 
 	def bypassCaptcha(this, content):
@@ -47,6 +50,9 @@ class Item:
 		this.soup = None
 		this.price = "N/A"
 		this.currency = "N/A"
+		this.seller = "N/A"
+		this.discount = "N/A"
+		this.fullPrice = "N/A"
 		this.Image = "N/A"
 
 	def downloadWebpageContent(this, content=None):
@@ -93,6 +99,28 @@ class Item:
 			return
 		this.price = "N/A"
 		this.currency = "N/A"
+
+	def extractFullPrice(this):
+		try:
+			fullPriceSpan = this.soup.find_all("span", ["a-price", "a-text-price"])[-1]
+			this.fullPrice = fullPriceSpan.find("span", "a-offscreen").text[3:]
+		except IndexError:
+			this.fullPrice = this.price
+
+	def extractSeller(this):
+		soldByDiv = this.soup.find_all("div", attrs={"tabular-attribute-name": "Sold by"})
+		try:
+			this.seller = soldByDiv[1].text.strip()
+		except IndexError:
+			this.seller = "N/A"
+
+	def extractDiscount(this):
+		discountSpan = this.soup.find_all("span", "savingsPercentage")
+		try:
+			discount = discountSpan[0].text
+			this.discount = discount
+		except IndexError:
+			this.discount = "0%"
 
 	def extractImage(this):
 		this.extractImageLink()
