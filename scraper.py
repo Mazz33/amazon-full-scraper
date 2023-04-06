@@ -1,41 +1,27 @@
 import numpy as np
 from threading import Thread
+from PyQt6 import QtGui, QtWidgets, QtCore
 from Item import Item
 
-def getAsinList():
-	asinList = []
-	with open("input.txt") as f:
-		content = f.readlines()
-	asinList = [x.strip() for x in content]
-	return asinList
+class ScraperSignals(QtCore.QObject):
+	finished = QtCore.pyqtSignal()
+	progress = QtCore.pyqtSignal(int)
 
-def amazonSearch(asinList, index, writer, updater):
-	number = index
-	for asin in asinList:
-		number += 1
-		item = Item(asin)
-		writer.writeItemData(item, number)
-		updater()
+class Scraper(QtCore.QRunnable):
+	def __init__(this, asinList, index, writer):
+		super(Scraper, this).__init__()
 
-def getStartPoints(arr):
-	startPoints = []
-	for i in range(len(arr)):
-		if (i==0):
-			startPoints.append(1)
-		else:
-			if (len(arr[i]) == len(arr[i-1])):
-				startPoints.append(startPoints[i-1] + len(arr[i]))
-			else:
-				startPoints.append(startPoints[i-1] + len(arr[i]) + 1)
-	return startPoints
-				
-def scrape(asinList, threadCount, writer, updater):
-	splitted = np.array_split(asinList, threadCount)
-	startPoints = getStartPoints(splitted)
-	threads = []
-	for t in range(threadCount):
-		t = Thread(target=amazonSearch, args=(splitted[t], startPoints[t], writer, updater,))
-		threads.append(t)
-		t.start()
-	for t in threads:
-		t.join()
+		this.asinList = asinList
+		this.index = index
+		this.writer = writer
+
+		this.signals = ScraperSignals()
+
+	def run(this):
+		row = this.index
+		for asin in this.asinList:
+			row += 1
+			item = Item(asin)
+			this.writer.writeItemData(item, row)
+			this.signals.progress.emit(1)
+		this.signals.finished.emit()

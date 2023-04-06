@@ -134,3 +134,6 @@ input.txt
 
 # vscode
 .vscode/
+
+# test files
+test*.py
