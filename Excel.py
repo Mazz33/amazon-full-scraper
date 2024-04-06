@@ -37,8 +37,9 @@ class ExcelWriter:
 		this.worksheet.set_column("D:D", 10)
 		this.worksheet.set_column("E:E", 10)
 		this.worksheet.set_column("F:F", 10)
-		this.worksheet.set_column("G:G", 15)
-		this.worksheet.set_column("H:H", 10)
+		this.worksheet.set_column("G:G", 10)
+		this.worksheet.set_column("H:H", 15)
+		this.worksheet.set_column("I:I", 10)
 		this.worksheet.set_default_row(50)
  
 	def writeColumnsTitles(this):
@@ -48,8 +49,9 @@ class ExcelWriter:
 		this.worksheet.write("D1", "Price")
 		this.worksheet.write("E1", "Full Price")
 		this.worksheet.write("F1", "Discount")
-		this.worksheet.write("G1", "Seller")
-		this.worksheet.write("H1", "Picture")
+		this.worksheet.write("G1", "Weight")
+		this.worksheet.write("H1", "Seller")
+		this.worksheet.write("I1", "Picture")
 
 	def writeAsin(this, asin, row):
 		this.worksheet.write_string("A{}".format(row), asin)
@@ -84,9 +86,15 @@ class ExcelWriter:
 		else:
 			return
 
+	#? Weight code is rushed... It doesn't appear in the gui and will always be scrapped.
+	#TODO To add the check, a new field need to be added to the gui, and the checkbox activated accordingly.
+	# Check writeDiscount for reference how to do it.
+	def writeWeight(this, discount, row): 
+		this.worksheet.write_string("G{}".format(row), discount)
+
 	def writeSeller(this, seller, row):
 		if (this.checkBox and this.checkBox["seller"]):
-			this.worksheet.write_string("G{}".format(row), seller)
+			this.worksheet.write_string("H{}".format(row), seller)
 		else:
 			return
 
@@ -95,9 +103,9 @@ class ExcelWriter:
 			return
 		if (this.checkBox and this.checkBox["image"]):
 			if (item.imageData is None):
-				this.worksheet.write_string("H{}".format(row), "N/A")
+				this.worksheet.write_string("I{}".format(row), "N/A")
 				return
-			this.worksheet.insert_image("H{}".format(row), item.asin, {
+			this.worksheet.insert_image("I{}".format(row), item.asin, {
 				"object_position": 1,
 				"url": item.url,
 				"x_scale": item.x_scale,
@@ -115,6 +123,7 @@ class ExcelWriter:
 			this.writePrice("N/A", row)
 			this.writeFullPrice("N/A", row)
 			this.writeDiscount("N/A", row)
+			this.writeWeight("N/A", row)
 			this.writeSeller("N/A", row)
 			this.writeImage("N/A", row, write=False)
 			return
@@ -125,6 +134,7 @@ class ExcelWriter:
 		this.writePrice(item.price, row)
 		this.writeFullPrice(item.fullPrice, row)
 		this.writeDiscount(item.discount, row)
+		this.writeWeight(item.weight, row)
 		this.writeSeller(item.seller, row)
 		this.writeImage(item, row)
 		

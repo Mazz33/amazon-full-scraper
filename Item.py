@@ -1,3 +1,4 @@
+import re
 import requests
 import time
 from io import BytesIO
@@ -27,6 +28,7 @@ class Item:
 		this.extractDiscount()
 		this.extractSeller()
 		this.extractImage()
+		this.extractWeight()
 
 	def bypassCaptcha(this, content):
 		soup = bs(content, "html.parser")
@@ -52,6 +54,7 @@ class Item:
 		this.currency = "N/A"
 		this.seller = "N/A"
 		this.discount = "N/A"
+		this.weight = "N/A"
 		this.fullPrice = "N/A"
 		this.Image = "N/A"
 
@@ -121,6 +124,39 @@ class Item:
 			this.discount = discount
 		except IndexError:
 			this.discount = "0%"
+
+	def extractWeight(this):
+		patternBullets = r";\s\d+(\.\d+)?\sk?g"
+		patternDetails = r"\d+(\.\d+)?\s+((Kilograms)|(Grams))" # We are going to use regex for this one. This assumes the only metric unit used is KGs
+
+		try:
+			productDetails = this.soup.find("div", id="productDetails_feature_div") # We will first get the table div
+			if (productDetails is None):
+				raise Exception("Div not found")
+			match = re.search(patternDetails, productDetails.text, re.IGNORECASE)
+			if (match):
+				this.weight = match.group().replace("Kilograms", "kg").replace("Grams", "g")
+				return;
+
+			match = re.search(patternBullets, productDetails.text, re.IGNORECASE)
+			if (match):
+				this.weight = match.group().split("; ")[-1]
+				return;
+		except Exception:
+			pass
+
+		try:
+			# It wasn't found, so we will try to search the other field
+			productDetails = this.soup.find("div", id="detailBulletsWrapper_feature_div")
+			if (productDetails is None):
+				raise Exception("Div not found")
+			match = re.search(patternBullets, productDetails.text, re.IGNORECASE)
+			if (match):
+				this.weight = match.group().split("; ")[-1]
+				return;
+		except Exception:
+			pass
+		this.weight = "N/A"
 
 	def extractImage(this):
 		this.extractImageLink()
